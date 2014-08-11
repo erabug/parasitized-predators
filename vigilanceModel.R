@@ -1,4 +1,5 @@
-library(deSolve); library(ggplot2); library(reshape); library(gridExtra)
+library(deSolve); library(ggplot2); library(reshape); library(gridExtra); 
+library(reshape2)
 
 #---------------------------------------#
 #         Model Specification           #
@@ -27,8 +28,11 @@ times <- expression(seq(0, 1000, by = 1))              #number of iterations to 
 isoRange <- expression(seq(0, max, 1))
 
 # Run the models!
-fixedVigilance(state, times, parameters, fixedDynamics, isoRange)
-flexibleVigilance(state, times, parameters, flexibleDynamics, isoRange)
+fixedVigilance(state, times, parameters, "fixedDynamics", isoRange)
+flexibleVigilance(state, times, parameters, "flexibleDynamics", isoRange)
+
+# Find the equilibrium abundance of P in the fixed vigilance model (w/ vigilance)
+predEquilibrium(parameters, vigilance = TRUE)
 
 # plot Sweeps
 sweep <- sweepParameters(state, times, parameters)
@@ -38,7 +42,7 @@ plotSweepV(sweep)
 # G-functions
 Gvalues <- getGP(state, times, parameters, "fixed")
 Gvalues <- getGP(state, times, parameters, "flexible")
-contourPlot(Gvalues, "m", "b") #choose m+b, k+b, or k+m
+contourPlot(Gvalues, "k", "b") #choose m+b, k+b, or k+m
 
 #---------------------------------------#
 #              Functions                #
@@ -74,7 +78,7 @@ flexibleDynamics <- function(t, state, parameters) {
 getDynamics <- function(state, times, parameters, modelType) {
     with(as.list(parameters),{
         dynamics <- ode(y = state, times = eval(times), func = match.fun(modelType), parms = parameters)
-        if (modelType == "flexible") {
+        if (modelType == "flexibleDynamics") {
             v <- (((m*K*dynamics[,"P"])/(r*b*(K-dynamics[,"N"])))^0.5)-(k/b)
             v[v < 0 | is.na(v)] <- 0
         }
@@ -88,6 +92,18 @@ plotDynamics <- function(dynamics) {
                   aes(time, value, group = variable, color = variable)) + 
                geom_line(size = 1.5) + labs(y = "population") + theme_bw() + 
                theme(legend.direction = "horizontal", legend.position=c(0.5, 0.9)))
+}
+
+# Find the equilibrium predator abundance in the fixed model with/without vigilance
+predEquilibrium <- function(parameters, vigilance) {
+    with(as.list(parameters),{
+        ifelse(vigilance, {
+            z <- eval(z)
+            r0 <- eval(r0)
+            P <- (c*K*z*(r0-dN)-(r0*dP))/(c*K*z^2)
+        }, P <- ((k*(r-dN))/m)-((r*(k^2)*dP)/c*K*m^2))
+        return(P)
+    })
 }
 
 #---ISOCLINES---#
@@ -112,7 +128,7 @@ flexibleIsoclines <- function(isoRange, parameters) {
     with(as.list(parameters),{
         N <- eval(isoRange)                                       #evaluate the range of N to test
         P <- b*K*((r*(1+k/b)*((K-N)/K)-dN)^2)/(4*r*m*(K-N))       #evaluate prey isocline (P) for N range (Abdel's version)
-        #P <- ((K*b*dN-K*b*r-K*k*r+N*b*r+N*k*r)^2)/(4*b*r*K*m*(K-N)) #Paul's version (same as Abdel's)
+        #P <- ((K*b*dN-K*b*r-K*k*r+N*b*r+N*k*r)^2)/(4*b*r*K*m*(K-N)) #Paul's version (same result as Abdel's)
         v <- (((m*K*P)/(r*b*(K-N)))^0.5)-(k/b)                    #evaluate v for those N and P values
         Niso <- data.frame(N = N, P = P, v = v, isocline = "N")   #write N, P, v to a data frame
         Niso[Niso$v < 0, "P"] <- (k*(r-dN))/m - ((r*k*Niso[Niso$v < 0, "N"])/(m*K)) #if v negative, recalculate isocline (P)
@@ -241,15 +257,16 @@ getGP <- function(state, times, parameters, modelType){
             for (k in kRange) {
                 for (b in bRange) {
                     z <- m/(k+b*v)
-                    ifelse(modelType == "fixed", G <- z*c*N - dP,
+                    ifelse(modelType == "fixed", 
+                           G <- z*c*N - dP,
                            G <- c*N*(((r*m*(K-N))/(b*K*P))^0.5) - dP)
                     result <- data.frame(m=m, k=k, b=b, G=G)
                     Gvalues <- rbind(Gvalues, result)
                 }
             }
         }
+        return(Gvalues)
     }) 
-    return(Gvalues)
 }
 
 # create a filled contour plot of G-function values for pairing of m, k, and b
@@ -267,10 +284,11 @@ contourPlot <- function(Gvalues, xpar, ypar) {
            ifelse(exclude == "m",
                   Y <- acast(Gvalues[Gvalues$m == 0.45, -1], k ~ b),
                   Y <- acast(Gvalues[Gvalues$b == 1, -3], k ~ m)))
-    return(filled.contour(xlim, ylim, Y, color.palette=heat.colors, nlevels = 4,
-                          xlab = xlab, ylab = ylab,  
+    return(filled.contour(xlim, ylim, Y, color.palette = heat.colors, nlevels = 3,
+                          xlab = xlab, ylab = ylab, 
+                          main = paste("predator G-function with change in", xpar, "and", ypar),  
                           plot.axes={ axis(1, xlim); axis(2, ylim); 
                                       contour(x = xlim, y = ylim, z = Y, 
                                               drawlabels = FALSE, add = T,
-                                              nlevels = 4) }))
+                                              nlevels = 3) }))
 }
