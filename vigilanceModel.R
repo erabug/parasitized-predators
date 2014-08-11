@@ -42,7 +42,7 @@ plotSweepV(sweep)
 # G-functions
 Gvalues <- getGP(state, times, parameters, "fixed")
 Gvalues <- getGP(state, times, parameters, "flexible")
-contourPlot(Gvalues, "k", "b") #choose m+b, k+b, or k+m
+contourPlot(Gvalues, "m", "b") #choose m+b, k+b, or k+m
 
 #---------------------------------------#
 #              Functions                #
@@ -201,8 +201,8 @@ getParameterValues <- function(parameter, times, parameters, last) {
             if (is.na(max) | max < 0 | is.infinite(max)) next
         }
         state <- c(N = max, P = 5) 
-        fixed <- getDynamics(state, times, parameters, fixedDynamics)[last,]
-        flexible <- getDynamics(state, times, parameters, flexibleDynamics)[last,]
+        fixed <- getDynamics(state, times, parameters, "fixedDynamics")[last,]
+        flexible <- getDynamics(state, times, parameters, "flexibleDynamics")[last,]
         values <- c(fixed[, 2], fixed[, 3], flexible[, 2], flexible[, 3], flexible[, 4])    
         result <- data.frame(parameter = parameter, parValue = value,
                              model = model, group = group, value = values)
@@ -214,7 +214,7 @@ getParameterValues <- function(parameter, times, parameters, last) {
 # return a data frame of equilibrium N, P, and v values for all parameter ranges
 sweepParameters <- function(state, times, parameters) {
     last <- length(eval(times))
-    parameters["v"] <- getDynamics(state, times, parameters, flexibleDynamics)[last, 4] #overwrite parameter value with v
+    parameters["v"] <- getDynamics(state, times, parameters, "flexibleDynamics")[last, 4] #overwrite parameter value with v
     evalParameters <- names(unlist(as.list(parameters[c(1:3, 5:9)]))) #create a list of eight parameters to sweep
     sweep <- lapply(evalParameters, getParameterValues, times = times, parameters = parameters, last = last)
     return(do.call("rbind", sweep))
@@ -247,8 +247,8 @@ getGP <- function(state, times, parameters, modelType){
     kRange <- bRange <- range <- seq(1, 10, 1)    
     Gvalues <- data.frame()   
     ifelse(modelType == "fixed", 
-           vals <- getDynamics(state, times, parameters, fixedDynamics)[last,],
-           vals <- getDynamics(state, times, parameters, flexibleDynamics)[last,])
+           vals <- getDynamics(state, times, parameters, "fixedDynamics")[last,],
+           vals <- getDynamics(state, times, parameters, "flexibleDynamics")[last,])
     N <- vals[,2]
     P <- vals[,3]
     parameters["v"] <- vals[,4]
