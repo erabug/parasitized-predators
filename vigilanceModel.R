@@ -7,7 +7,7 @@ library(reshape2)
 
 # Model parameters and values
 parameters <- c(r = 0.2,                     #intrinsic rate of growth
-                v = 0.105,                   #vigilance
+                v = 0.5,                   #vigilance
                 dN = 0.1,                    #prey death rate
                 K = 100,                     #carrying capacity
                 c = 0.1,                     #conversion rate
@@ -146,7 +146,7 @@ flexibleIsoclines <- function(isoRange, parameters) {
 plotIsoclines <- function(isoRange, parameters, isoType) {
     return(ggplot(match.fun(isoType)(isoRange, parameters), 
                   aes(N, P, group = isocline, color = isocline)) +
-               geom_line(size = 1.5)  + theme_bw() + 
+               geom_line(size = 1.5)  + ylim(0, 2) + theme_bw() + 
                theme(legend.direction = "horizontal", legend.position=c(0.5, 0.9)))
 }
 
@@ -257,9 +257,10 @@ getGP <- function(state, times, parameters, modelType){
             for (k in kRange) {
                 for (b in bRange) {
                     z <- m/(k+b*v)
-                    ifelse(modelType == "fixed", 
-                           G <- z*c*N - dP,
-                           G <- c*N*(((r*m*(K-N))/(b*K*P))^0.5) - dP)
+                    G <- z*c*N - dP
+#                     ifelse(modelType == "fixed", 
+#                            G <- z*c*N - dP,
+#                            G <- c*N*(((r*m*(K-N))/(b*K*P))^0.5) - dP)
                     result <- data.frame(m=m, k=k, b=b, G=G)
                     Gvalues <- rbind(Gvalues, result)
                 }
