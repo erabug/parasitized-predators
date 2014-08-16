@@ -7,7 +7,7 @@ library(reshape2)
 
 # Model parameters and values
 parameters <- c(r = 0.2,                     #intrinsic rate of growth
-                v = 0.5,                   #vigilance
+                v = 0.105,                   #vigilance
                 dN = 0.1,                    #prey death rate
                 K = 100,                     #carrying capacity
                 c = 0.1,                     #conversion rate
@@ -40,8 +40,7 @@ plotSweepNP(sweep)
 plotSweepV(sweep)
 
 # G-functions
-Gvalues <- getGP(state, times, parameters, "fixed")
-Gvalues <- getGP(state, times, parameters, "flexible")
+Gvalues <- getGP(state, times, parameters)
 contourPlot(Gvalues, "m", "b") #choose m+b, k+b, or k+m
 
 #---------------------------------------#
@@ -222,18 +221,19 @@ sweepParameters <- function(state, times, parameters) {
 
 # plot the N and P dynamics for the parameter sweep
 plotSweepNP <- function(sweep) {
-    return(ggplot(sweep[sweep$group != "v",], aes(parValue, value, color = group)) + 
+    return(ggplot(sweep[sweep$group != "v" & sweep$parameter == "b",], aes(parValue, value, color = group)) + 
                geom_line(aes(linetype = model), size = 1)  +
                facet_wrap(~parameter+group, scale = "free", ncol = 4) + 
                labs(x = "parameter value", y = "population") + theme_bw() + 
+               geom_vline(xintercept = 5, size = 1) +
                theme(strip.text = element_text(size = 14, face = "bold")))
 }
 
 # plot the v dynamics for the parameter sweep
 plotSweepV <- function(sweep) {
-    return(ggplot(sweep[sweep$group == "v",], aes(parValue, value)) + 
+    return(ggplot(sweep[sweep$group == "v" & sweep$parameter != "v",], aes(parValue, value)) + 
                geom_line(size = 1)  +
-               facet_wrap(~parameter, scale = "free_x", ncol = 4) + 
+               facet_wrap(~parameter, scale = "free_x", ncol = 4) + ylim(0, 0.4) +
                labs(x = "parameter value", y = "v*") + theme_bw() + 
                theme(strip.text = element_text(size = 14, face = "bold")))
 }
@@ -241,14 +241,12 @@ plotSweepV <- function(sweep) {
 #---G-FUNCTIONS---#
 
 # return data frame of G-function values for range in m, k, and b
-getGP <- function(state, times, parameters, modelType){
+getGP <- function(state, times, parameters){
     last <- length(eval(times))   
     mRange <- seq(0, 0.50, 0.05)
     kRange <- bRange <- range <- seq(1, 10, 1)    
-    Gvalues <- data.frame()   
-    ifelse(modelType == "fixed", 
-           vals <- getDynamics(state, times, parameters, "fixedDynamics")[last,],
-           vals <- getDynamics(state, times, parameters, "flexibleDynamics")[last,])
+    Gvalues <- data.frame()
+    vals <- getDynamics(state, times, parameters, "flexibleDynamics")[last,]
     N <- vals[,2]
     P <- vals[,3]
     parameters["v"] <- vals[,4]
@@ -258,9 +256,6 @@ getGP <- function(state, times, parameters, modelType){
                 for (b in bRange) {
                     z <- m/(k+b*v)
                     G <- z*c*N - dP
-#                     ifelse(modelType == "fixed", 
-#                            G <- z*c*N - dP,
-#                            G <- c*N*(((r*m*(K-N))/(b*K*P))^0.5) - dP)
                     result <- data.frame(m=m, k=k, b=b, G=G)
                     Gvalues <- rbind(Gvalues, result)
                 }
@@ -269,6 +264,22 @@ getGP <- function(state, times, parameters, modelType){
         return(Gvalues)
     }) 
 }
+
+# quick and dirty ggplot for 1-D graphs of change in m, k, b, c, dP
+with(as.list(parameters),{
+    range <- seq(0, 0.50, 0.05) # range of dP
+    N <- 15.25063 # got from vals[last,]
+    P <- 0.788446
+    v <- 0.10501256289338
+    z <- m/(k+b*v)
+    Gvalues <- c()
+    for (i in range) {
+        c <- i
+        Gvalues <- append(Gvalues, z*c*N - dP)
+    }
+    G <- data.frame(G = Gvalues, c = range)
+    ggplot(G, aes(c, G)) + geom_line(size = 1) + theme_bw()
+})
 
 # create a filled contour plot of G-function values for pairing of m, k, and b
 contourPlot <- function(Gvalues, xpar, ypar) {
@@ -283,11 +294,11 @@ contourPlot <- function(Gvalues, xpar, ypar) {
     ifelse(exclude == "k",
            Y <- acast(Gvalues[Gvalues$k == 1, -2], m ~ b),
            ifelse(exclude == "m",
-                  Y <- acast(Gvalues[Gvalues$m == 0.45, -1], k ~ b),
-                  Y <- acast(Gvalues[Gvalues$b == 1, -3], k ~ m)))
+                  Y <- acast(Gvalues[Gvalues$m == 0.1, -1], k ~ b),
+                  Y <- acast(Gvalues[Gvalues$b == 5, -3], k ~ m)))
     return(filled.contour(xlim, ylim, Y, color.palette = heat.colors, nlevels = 3,
-                          xlab = xlab, ylab = ylab, 
-                          main = paste("predator G-function with change in", xpar, "and", ypar),  
+                          xlab = xlab, ylab = ylab, cex.lab = 1.5, cex.main = 3,
+                          #main = paste("predator G-value with change in", xpar, "and", ypar),  
                           plot.axes={ axis(1, xlim); axis(2, ylim); 
                                       contour(x = xlim, y = ylim, z = Y, 
                                               drawlabels = FALSE, add = T,
