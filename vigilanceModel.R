@@ -265,21 +265,42 @@ getGP <- function(state, times, parameters){
     }) 
 }
 
-# quick and dirty ggplot for 1-D graphs of change in m, k, b, c, dP
-with(as.list(parameters),{
-    range <- seq(0, 0.50, 0.05) # range of dP
+# find G-value with for a given parameter
+getGvalue <- function(parameter, parameters) { 
+    ifelse(parameter == "c" | parameter == "m" | parameter == "dP",
+           prange <- seq(0, 0.50, 0.05), 
+           prange <- seq(1, 9, 1))
     N <- 15.25063 # got from vals[last,]
     P <- 0.788446
-    v <- 0.10501256289338
-    z <- m/(k+b*v)
+    v <- 0.10501256289338      
     Gvalues <- c()
-    for (i in range) {
-        c <- i
-        Gvalues <- append(Gvalues, z*c*N - dP)
+    for (i in prange) { 
+        parameters[parameter] <- i
+        z <- with(as.list(parameters[1:9]), m/(k+b*v))
+        Gvalues <- append(Gvalues, with(as.list(parameters[1:9]), z*c*N - dP))
     }
-    G <- data.frame(G = Gvalues, c = range)
-    ggplot(G, aes(c, G)) + geom_line(size = 1) + theme_bw()
-})
+    return(data.frame(G = Gvalues, parameter = prange))
+}
+
+# find and plot G-valuez with changes in m, k, b, c, dP
+sweepGvalues <- function(parameters) {
+    mG <- getGvalue("m", parameters)
+    kG <- getGvalue("k", parameters)
+    bG <- getGvalue("b", parameters)
+    cG <- getGvalue("c", parameters)
+    dPG <- getGvalue("dP", parameters)
+    grid.arrange(ggplot(mG, aes(parameter, G)) + geom_line(size = 1) + 
+                     labs(x = "encounter rate (m)") + theme_bw(),
+                 ggplot(kG, aes(parameter, G)) + geom_line(size = 1) + 
+                     labs(x = "inverse predator lethality (k)") + theme_bw(),
+                 ggplot(bG, aes(parameter, G)) + geom_line(size = 1) + 
+                     labs(x = "value of vigilance (b)") + theme_bw(),
+                 ggplot(cG, aes(parameter, G)) + geom_line(size = 1) + 
+                     labs(x = "conversion rate (c)") + theme_bw(),
+                 ggplot(dPG, aes(parameter, G)) + geom_line(size = 1) + 
+                     labs(x = "predator death rate (dP)") + theme_bw(),
+                 ncol = 3)
+}
 
 # create a filled contour plot of G-function values for pairing of m, k, and b
 contourPlot <- function(Gvalues, xpar, ypar) {
