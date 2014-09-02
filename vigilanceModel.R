@@ -279,26 +279,34 @@ getGvalue <- function(parameter, parameters) {
         z <- with(as.list(parameters[1:9]), m/(k+b*v))
         Gvalues <- append(Gvalues, with(as.list(parameters[1:9]), z*c*N - dP))
     }
-    return(data.frame(G = Gvalues, parameter = prange))
+    return(data.frame(parameter = parameter, parValue = prange, G = Gvalues))
 }
 
 # find and plot G-valuez with changes in m, k, b, c, dP
 sweepGvalues <- function(parameters) {
-    mG <- getGvalue("m", parameters)
-    kG <- getGvalue("k", parameters)
-    bG <- getGvalue("b", parameters)
-    cG <- getGvalue("c", parameters)
-    dPG <- getGvalue("dP", parameters)
-    grid.arrange(ggplot(mG, aes(parameter, G)) + geom_line(size = 1) + 
-                     labs(x = "encounter rate (m)") + theme_bw(),
-                 ggplot(kG, aes(parameter, G)) + geom_line(size = 1) + 
-                     labs(x = "inverse predator lethality (k)") + theme_bw(),
-                 ggplot(bG, aes(parameter, G)) + geom_line(size = 1) + 
-                     labs(x = "value of vigilance (b)") + theme_bw(),
-                 ggplot(cG, aes(parameter, G)) + geom_line(size = 1) + 
-                     labs(x = "conversion rate (c)") + theme_bw(),
-                 ggplot(dPG, aes(parameter, G)) + geom_line(size = 1) + 
-                     labs(x = "predator death rate (dP)") + theme_bw(),
+    params <- c("m","k","b","c","dP")
+    Gvalues = c()
+    for (i in params) Gvalues <- rbind(Gvalues, getGvalue(i, parameters))
+    grid.arrange(ggplot(Gvalues[Gvalues$parameter == "m",], aes(parValue, G)) + 
+                     geom_line(size = 1) + 
+                     labs(x = "encounter rate (m)") + theme_bw() +
+                     geom_vline(xintercept = 0.1, size = 1, color = "red"),
+                 ggplot(Gvalues[Gvalues$parameter == "k",], aes(parValue, G)) + 
+                     geom_line(size = 1) +  
+                     labs(x = "inverse predator lethality (k)") + theme_bw() +
+                     geom_vline(xintercept = 1, size = 1, color = "red"),
+                 ggplot(Gvalues[Gvalues$parameter == "b",], aes(parValue, G)) + 
+                     geom_line(size = 1) + 
+                     labs(x = "value of vigilance (b)") + theme_bw() +
+                     geom_vline(xintercept = 5, size = 1, color = "red"),
+                 ggplot(Gvalues[Gvalues$parameter == "c",], aes(parValue, G)) + 
+                     geom_line(size = 1) + 
+                     labs(x = "conversion rate (c)") + theme_bw() +
+                     geom_vline(xintercept = 0.1, size = 1, color = "red"),
+                 ggplot(Gvalues[Gvalues$parameter == "dP",], aes(parValue, G)) + 
+                     geom_line(size = 1) + 
+                     labs(x = "predator death rate (dP)") + theme_bw() +
+                     geom_vline(xintercept = 0.1, size = 1, color = "red"),
                  ncol = 3)
 }
 
